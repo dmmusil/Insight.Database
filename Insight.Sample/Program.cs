@@ -5,6 +5,7 @@ using System.Data.SqlClient;
 using System.Data;
 using System.Threading.Tasks;
 using System.Data.Common;
+using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
@@ -19,10 +20,6 @@ namespace Insight.Database.Sample
     {
     }
 
-    public abstract class Repository
-    {
-        public const string Version = "_2";
-    }
 
     public interface IBeerRepository : IRepository
     {
@@ -42,6 +39,7 @@ namespace Insight.Database.Sample
 
     public class Program
     {
+        public const string Version = "_2";
         public static readonly string connectionString =
             "Data Source = .; Initial Catalog = InsightDbSample; Integrated Security = true";
 
@@ -53,7 +51,9 @@ namespace Insight.Database.Sample
             // Registering a provider is usually not necessary
             // SqlInsightDbProvider.RegisterProvider();
 
-            BuildAssembly();
+            var timer = Stopwatch.StartNew();
+            BuildProxies();
+            Console.WriteLine($"Created proxies in {timer.ElapsedMilliseconds}ms.");
 
             using (IDbConnection connection = Database.Open())
             {
@@ -68,7 +68,7 @@ namespace Insight.Database.Sample
 
         public static readonly Dictionary<string, Type> NewTypes = new Dictionary<string, Type>();
 
-        private static void BuildAssembly()
+        private static void BuildProxies()
         {
             // Build a namespace and assembly to put proxy implementations
             var dynamicNamespace = new AssemblyName("VersionedRepositories");
@@ -84,7 +84,7 @@ namespace Insight.Database.Sample
                 .Where(t => t.IsInterface && typeof(IRepository).IsAssignableFrom(t) && t != typeof(IRepository))
                 .ToList();
 
-            // For each abstract repository create a proxy with appropriate SqlAttributes
+            // For each repository interface create a proxy with appropriate SqlAttributes to redirect to versioned objects
             foreach (var repository in interfaces)
             {
                 var name = $"{repository.Name}_Proxy";
@@ -110,7 +110,7 @@ namespace Insight.Database.Sample
             var attrCtorParams = new[] {typeof(string)};
             var attrCtorInfo = typeof(SqlAttribute).GetConstructor(attrCtorParams);
             var attrBuilder =
-                new CustomAttributeBuilder(attrCtorInfo, new object[] {$"{method.Name}{Repository.Version}"});
+                new CustomAttributeBuilder(attrCtorInfo, new object[] {$"{method.Name}{Version}"});
 
             // Create a copy of the method from the original class and add the attribute
             var methodBuilder = typeBuilder.DefineMethod(method.Name,
