@@ -29,16 +29,12 @@ namespace Insight.Database.Sample
         IList<Beer> FindBeers(string name);
     }
 
-    public abstract class BeerRepository : Repository, IBeerRepository
-    {
-        public abstract IList<Beer> FindBeers(string name);
-    }
-
     public static class ConnectionExtensions
     {
         public static T AsVersionedRepo<T>(this IDbConnection conn)
         {
-            var type = Program.NewTypes[$"{typeof(T).Name.TrimStart('I')}_Proxy"];
+            // var type = Program.NewTypes[$"{typeof(T).Name.TrimStart('I')}_Proxy"];
+            var type = Program.NewTypes[$"{typeof(T).Name}_Proxy"];
             dynamic repo = conn.As(type);
             return (T) repo;
         }
@@ -89,12 +85,11 @@ namespace Insight.Database.Sample
                 .ToList();
 
             // For each abstract repository create a proxy with appropriate SqlAttributes
-            foreach (var repository in types
-                .Where(t => t.IsSubclassOf(typeof(Repository))))
+            foreach (var repository in interfaces)
             {
                 var name = $"{repository.Name}_Proxy";
                 var typeBuilder = moduleBuilder.DefineType(name,
-                    TypeAttributes.Public | TypeAttributes.Abstract);
+                    TypeAttributes.Public | TypeAttributes.Interface | TypeAttributes.Abstract);
 
                 // Attach the matching interface for more type safety. Without this we have to fall back to dynamic.
                 typeBuilder.AddInterfaceImplementation(interfaces.First(i => i.Name.EndsWith(repository.Name)));
@@ -119,7 +114,7 @@ namespace Insight.Database.Sample
 
             // Create a copy of the method from the original class and add the attribute
             var methodBuilder = typeBuilder.DefineMethod(method.Name,
-                MethodAttributes.Abstract | MethodAttributes.Public | MethodAttributes.Virtual,
+                 MethodAttributes.Public | MethodAttributes.Abstract | MethodAttributes.Virtual,
                 method.ReturnType, method.GetParameters().Select(i => i.ParameterType).ToArray());
             methodBuilder.SetCustomAttribute(attrBuilder);
 
