@@ -92,7 +92,7 @@ namespace Insight.Database.Sample
                     TypeAttributes.Public | TypeAttributes.Interface | TypeAttributes.Abstract);
 
                 // Attach the matching interface for more type safety. Without this we have to fall back to dynamic.
-                typeBuilder.AddInterfaceImplementation(interfaces.First(i => i.Name.EndsWith(repository.Name)));
+                typeBuilder.AddInterfaceImplementation(repository);
                 foreach (var method in repository.GetMethods())
                 {
                     CreateMethod(method, typeBuilder);
@@ -104,21 +104,19 @@ namespace Insight.Database.Sample
             }
         }
 
-        private static void CreateMethod(MethodInfo method, TypeBuilder typeBuilder)
+        private static void CreateMethod(MethodInfo originalMethod, TypeBuilder typeBuilder)
         {
-            // Create the attribute and concatenate the version identifier
-            var attrCtorParams = new[] {typeof(string)};
-            var attrCtorInfo = typeof(SqlAttribute).GetConstructor(attrCtorParams);
-            var attrBuilder =
-                new CustomAttributeBuilder(attrCtorInfo, new object[] {$"{method.Name}{Version}"});
-
             // Create a copy of the method from the original class and add the attribute
-            var methodBuilder = typeBuilder.DefineMethod(method.Name,
+            var methodBuilder = typeBuilder.DefineMethod(originalMethod.Name,
                  MethodAttributes.Public | MethodAttributes.Abstract | MethodAttributes.Virtual,
-                method.ReturnType, method.GetParameters().Select(i => i.ParameterType).ToArray());
-            methodBuilder.SetCustomAttribute(attrBuilder);
+                originalMethod.ReturnType, originalMethod.GetParameters().Select(i => i.ParameterType).ToArray());
+            
+            CreateAttributeWithVersion(methodBuilder);
+            CopyParameters(originalMethod, methodBuilder);
+        }
 
-            // Copy the parameters over, including their names so that Insight can still do its mapping
+        private static void CopyParameters(MethodInfo method, MethodBuilder methodBuilder)
+        {
             var parameters = method.GetParameters();
             for (var index = 0; index < parameters.Length; index++)
             {
@@ -126,6 +124,15 @@ namespace Insight.Database.Sample
                 // parameter at index 0 is the return value...
                 methodBuilder.DefineParameter(index + 1, parameter.Attributes, parameter.Name);
             }
+        }
+
+        private static void CreateAttributeWithVersion(MethodBuilder builder)
+        {
+            var attrCtorParams = new[] {typeof(string)};
+            var attrCtorInfo = typeof(SqlAttribute).GetConstructor(attrCtorParams);
+            var attrBuilder =
+                new CustomAttributeBuilder(attrCtorInfo, new object[] {$"{builder.Name}{Version}"});
+            builder.SetCustomAttribute(attrBuilder);
         }
 
         class Glass
