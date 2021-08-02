@@ -4,7 +4,7 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(INSIGHT_NETCOREONLY)' == ''">
-    <TargetFrameworks>netcoreapp5.0;net451</TargetFrameworks>
+    <TargetFramework>net451</TargetFramework>
   </PropertyGroup>
   <PropertyGroup Condition="'$(INSIGHT_NETCOREONLY)' != ''">
     <TargetFrameworks>netcoreapp5.0;</TargetFrameworks>
